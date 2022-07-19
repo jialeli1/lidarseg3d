@@ -8,6 +8,9 @@ A generic repository for LiDAR 3D semantic segmentation in autonomous driving sc
 ## News
 
 <!-- - [2022-07-14] Initial release for the implementation of SDSeg3D.   -->
+- [2022-07-19] Our new method ranks 2nd on the official nuScenes lidar-seg leaderboard and achieves 81.1 mIoU with slight differences among the highly competitive Top3 submissions.
+
+<p align="center"> <img src='docs/semnusc_leaderboard.png' align="center" height="240px"> </p>
 
 - [2022-07-04] Our LiDAR-only method SDSeg3D (Self-Distillation for Robust LiDAR Semantic Segmentation in Autonomous Driving) is accepted as a poster paper at ECCV 2022. [Paper](add_url).
 
