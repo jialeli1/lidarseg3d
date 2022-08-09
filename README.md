@@ -8,13 +8,10 @@ A generic repository for LiDAR 3D semantic segmentation in autonomous driving sc
 ## News
 
 <!-- - [2022-07-14] Initial release for the implementation of SDSeg3D.   -->
-- [2022-07-19] Our new method ranks 2nd on the official nuScenes lidar-seg leaderboard and achieves 81.1 mIoU with slight differences among the highly competitive Top3 submissions.
 
-<p align="center"> <img src='docs/semnusc_leaderboard.png' align="center" height="240px"> </p>
 
 - [2022-07-04] Our LiDAR-only method SDSeg3D (Self-Distillation for Robust LiDAR Semantic Segmentation in Autonomous Driving) is accepted as a poster paper at ECCV 2022. [Paper](add_url).
 
-- [2022-06-20] Our multi-modality solution for 3D semantic segmentation won the 2nd place in the 3D semantic segmentation track of CVPR 2022 Waymo Open Dataset Challenges. A technical report is presented at the Workshop of Autonomous Driving at CVPR 2022. The code will also be released soon. [Technical report](https://storage.googleapis.com/waymo-uploads/files/research/3DSemSeg/3DSemseg_SegNet3DV2.pdf). 
 
 <!-- ## Contact
 Any questions or suggestions are welcome! 
@@ -55,23 +52,6 @@ We propose a new and effective self-distillation framework with our new Test-Tim
     year      = {2022},
     }
 
-## SegNet3D
-> [**Top-performing Multi-Modal Solution for 3D Semantic Segmentation of Waymo Open Dataset Challenge**](https://storage.googleapis.com/waymo-uploads/files/research/3DSemSeg/3DSemseg_SegNet3DV2.pdf)            
-> Jiale Li, Hang Dai, and Yong Ding       
-
-### Abstract
-This technical report presents our top-performing multimodal solution for the 3D semantic segmentation track in Waymo Open Dataset Challenge at CVPR 2022. Almost all the existing LiDAR 3D semantic segmentation methods take only sparse laser points as input, suffering from inaccurate distinction on small objects. We propose a winning multi-modal method that uses multi-camera images to complement the point cloud. However, multi-modal data also introduces issues on modal heterogeneity and multi-modal data augmentation. To address the former, we propose to perform specific intra-modal feature extraction and inter-modal fusion in a jointly optimized model. The later limitation of multi-modal data augmentation is decoupled as the asymmetric transformations on the point cloud and the images. Besides, the final segmentation performance also benefits from using historical multi-frame point clouds as input, Test-Time Augmentation (TTA), and model ensemble. We achieve the 2nd place with 70.48 mIoU on the official leaderboard.
-
-### Citation
-    @inproceedings{segnet3d_2022,
-    author    = {Jiale Li and
-                Hang Dai and
-                Yong Ding},
-    title     = {Top-performing Multi-Modal Solution for 3D Semantic Segmentation of Waymo Open Dataset Challenge},
-    booktitle = { },
-    pages     = { },
-    year      = {2022},
-    }
 
 ## Use LiDARSeg3D
 
