@@ -10,7 +10,7 @@ A generic repository for LiDAR 3D semantic segmentation in autonomous driving sc
 <!-- - [2022-07-14] Initial release for the implementation of SDSeg3D.   -->
 
 
-- [2022-07-04] Our LiDAR-only method SDSeg3D (Self-Distillation for Robust LiDAR Semantic Segmentation in Autonomous Driving) is accepted as a poster paper at ECCV 2022. [Paper](add_url).
+- [2022-07-04] Our LiDAR-only method SDSeg3D (Self-Distillation for Robust LiDAR Semantic Segmentation in Autonomous Driving) is accepted as a poster paper at ECCV 2022. [Paper](https://link.springer.com/content/pdf/10.1007/978-3-031-19815-1_38.pdf?pdf=inline%20link).
 
 
 <!-- ## Contact
@@ -22,7 +22,7 @@ Hang Dai [hang.dai.cs@gmail.com](mailto:hang.dai.cs@gmail.com) (MBZUAI) -->
 
 ## Highlights
 
-- **Simple:** Modules and pipelines can be instantiated via cfg files like [mmsegmentation](add_url), but more easily applicable to LiDAR 3D point clouds for voxelization, sparse convolution, devoxelization, etc. 
+- **Simple:** Modules and pipelines can be instantiated via cfg files like [mmsegmentation](https://github.com/open-mmlab/mmsegmentation), but more easily applicable to LiDAR 3D point clouds for voxelization, sparse convolution, devoxelization, etc. 
 
 - **Extensible**: Simple replacement and integration for any network components in your novel algorithms. Smooth compatibility for 3D object detector such as [CenterPoint](https://github.com/tianweiy/CenterPoint), since we try our best to preserve the features inherited from [CenterPoint](https://github.com/tianweiy/CenterPoint). 
 
@@ -33,7 +33,7 @@ Hang Dai [hang.dai.cs@gmail.com](mailto:hang.dai.cs@gmail.com) (MBZUAI) -->
 
 # Methods
 ## SDSeg3D
-> [**Self-Distillation for Robust LiDAR Semantic Segmentation in Autonomous Driving**](add_url)            
+> [**Self-Distillation for Robust LiDAR Semantic Segmentation in Autonomous Driving**](https://link.springer.com/content/pdf/10.1007/978-3-031-19815-1_38.pdf?pdf=inline%20link)            
 > Jiale Li, Hang Dai, and Yong Ding        
  
 
@@ -45,10 +45,10 @@ We propose a new and effective self-distillation framework with our new Test-Tim
     @inproceedings{sdseg3d_eccv2022,
     author    = {Jiale Li and
                 Hang Dai and
-                Yong Ding},
+                Yong Di59249ng},
     title     = {Self-Distillation for Robust {LiDAR} Semantic Segmentation in Autonomous Driving},
     booktitle = {ECCV},
-    pages     = { },
+    pages     = {659--676},
     year      = {2022},
     }
 
@@ -57,17 +57,18 @@ We propose a new and effective self-distillation framework with our new Test-Tim
 
 
 ### Installation
-Please stay tuned until the code is cleaned up.
-Follow [INSTALL](docs/INSTALL.md) to set up libraries needed for distributed training and sparse convolution.
+Please follow [INSTALL](docs/INSTALL.md) to set up libraries needed for distributed training and sparse convolution.
 
 ### Benchmark Evaluation and Training 
-
-Please refer to [GETTING_START](docs/GETTING_START.md) to prepare the data. Then follow the instruction there to reproduce our segmentation results. All segmentation configurations are included in [configs](configs).
+Please refer to [GETTING_START](docs/GETTING_START.md) to prepare the data in advance. Then follow the instruction there to play with the segmentation configurations included in [configs](configs).
 
 
 
 ### ToDo List
-- [ ] Code cleanup and release for SDSeg3D ASAP
+- [x] Normal training pipeline for semanticKITTI and nuScenes datasets
+- [x] TransVFE and TTA
+- [ ] Self-distillation pipeline
+- [ ] Support Waymo 3D segmentation dataset
 - [ ] Support multiple modalities for LiDAR and multi-cameras 
 - [ ] Support detection with detail instruction
 

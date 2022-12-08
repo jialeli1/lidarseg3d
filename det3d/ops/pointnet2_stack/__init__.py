@@ -1,0 +1,1 @@
+from det3d.ops.pointnet2_stack import pointnet2_stack_cuda

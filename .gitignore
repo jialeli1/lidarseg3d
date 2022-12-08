@@ -10,7 +10,7 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
+# dist/
 downloads/
 eggs/
 .eggs/
@@ -131,7 +131,10 @@ dmypy.json
 
 # lidarseg3d
 .vscode/
+data/
 work_dirs/
+slurm_out/
+run_cmds/
 *.pth
 *.pkl
 *.zip
