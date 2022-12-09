@@ -32,7 +32,7 @@ export PYTHONPATH="${PYTHONPATH}:PATH_TO_lidarseg3d"
 
 ### Advanced Installation 
 
-#### nuScenes dev-kit
+#### [nuScenes dev-kit](https://github.com/nutonomy/nuscenes-devkit)
 
 ```bash
 # we recommend installing nuscenes-devkit with this tested version (1.1.6)
@@ -57,11 +57,25 @@ export LD_LIBRARY_PATH=/usr/local/cuda-11.0/lib64:$LD_LIBRARY_PATH
 bash setup.sh 
 ```
 
-#### APEX
+
+#### [mmcv](https://github.com/open-mmlab/mmcv)
+
+```bash
+# please follow the offical installation instructions from mmcv, which usually takes about 10 minutes or so.
+# just be careful to choose the right mmcv version according to your cuda and pytorch.
+
+# in our case:
+pip install mmcv-full -f https://download.openmmlab.com/mmcv/dist/cu110/torch1.7.1/index.html
+```
+
+
+
+#### [APEX](https://github.com/nvidia/apex) (Optional)
 
 ```bash
 # CenterPoint uses "apex" for sync-bn, which is also preserved in our code. 
 # but we recommend using "torch" instead of "apex" for sync-bn. 
+# therefore, apex is not required to be installed if you don't use it.
 # you can control it by setting the "sync_bn_type" parameter in the model config file.
 git clone https://github.com/NVIDIA/apex
 cd apex
@@ -69,7 +83,7 @@ git checkout 5633f6  # recent commit doesn't build in our system
 pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
 ```
 
-#### spconv
+#### [spconv](https://github.com/traveller59/spconv) 
 ```bash
 # you may encounter some installation problems, but the solutions can be found from the issues of spconv repository.
 # we use the spconv with commit fad3000249d27ca918f2655ff73c41f39b0f3127.
