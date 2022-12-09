@@ -145,8 +145,7 @@ data = dict(
         info_path=train_anno,
         ann_file=train_anno,
         nsweeps=nsweeps,
-        # load_interval=1,
-        load_interval=100, 
+        load_interval=1,
         pipeline=train_pipeline,
     ),
     val=dict(
@@ -156,7 +155,7 @@ data = dict(
         test_mode=True,
         ann_file=val_anno,
         nsweeps=nsweeps,
-        load_interval=100,
+        load_interval=1,
         pipeline=val_pipeline,
     ),
     test=dict(

@@ -149,8 +149,7 @@ data = dict(
         ann_file=train_anno,
         sequences=train_seq,
         nsweeps=nsweeps,
-        # load_interval=1,
-        load_interval=100, 
+        load_interval=1,
         pipeline=train_pipeline,
     ),
     val=dict(
@@ -161,7 +160,7 @@ data = dict(
         ann_file=val_anno,
         sequences=val_seq,
         nsweeps=nsweeps,
-        load_interval=100,
+        load_interval=1,
         pipeline=val_pipeline,
     ),
     test=dict(
