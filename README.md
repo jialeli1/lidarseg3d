@@ -1,7 +1,9 @@
 # LiDARSeg3D
 
 
-A generic repository for LiDAR 3D semantic segmentation in autonomous driving scenarios. Also the official implementation of our ECCV 2022 paper: Self-Distillation for Robust LiDAR Semantic Segmentation in Autonomous Driving (SDSeg3D).
+A generic repository for LiDAR 3D semantic segmentation in autonomous driving scenarios. 
+
+Also the official implementations of our ECCV 2022 paper (Self-Distillation for Robust LiDAR Semantic Segmentation in Autonomous Driving) and CVPR 2023 paper (MSeg3D: Multi-modal 3D Semantic Segmentation for Autonomous Driving).
 
 
 
@@ -9,9 +11,15 @@ A generic repository for LiDAR 3D semantic segmentation in autonomous driving sc
 
 <!-- - [2022-07-14] Initial release for the implementation of SDSeg3D.   -->
 
+- [2023-03-28] Our LiDAR-Camera based method MSeg3D (MSeg3D: Multi-modal 3D Semantic Segmentation for Autonomous Driving) is accepted at CVPR 2023. Paper and code are on the way.
+
+- [2022-07-19] Our method (MSeg3D) ranks 2nd on the official nuScenes lidar-seg leaderboard and achieves 81.1 mIoU with slight differences among the highly competitive Top3 submissions.
+
+<p align="center"> <img src='docs/semnusc_leaderboard.png' align="center" height="240px"> </p>
 
 - [2022-07-04] Our LiDAR-only method SDSeg3D (Self-Distillation for Robust LiDAR Semantic Segmentation in Autonomous Driving) is accepted as a poster paper at ECCV 2022. [Paper](https://link.springer.com/content/pdf/10.1007/978-3-031-19815-1_38.pdf?pdf=inline%20link).
 
+- [2022-06-20] Our multi-modality solution for 3D semantic segmentation won the 2nd place in the 3D semantic segmentation track of CVPR 2022 Waymo Open Dataset Challenges. 
 
 <!-- ## Contact
 Any questions or suggestions are welcome! 
@@ -32,6 +40,12 @@ Hang Dai [hang.dai.cs@gmail.com](mailto:hang.dai.cs@gmail.com) (MBZUAI) -->
 
 
 # Methods
+## MSeg3D
+> [**MSeg3D: Multi-modal 3D Semantic Segmentation for Autonomous Driving**](tbd)            
+> Jiale Li, Hang Dai, Hao Han, and Yong Ding       
+ 
+
+
 ## SDSeg3D
 > [**Self-Distillation for Robust LiDAR Semantic Segmentation in Autonomous Driving**](https://link.springer.com/content/pdf/10.1007/978-3-031-19815-1_38.pdf?pdf=inline%20link)            
 > Jiale Li, Hang Dai, and Yong Ding        
