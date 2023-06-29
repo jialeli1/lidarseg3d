@@ -9,6 +9,7 @@ from .two_stage import TwoStageDetector
 
 # 3D Semantic Segmentation 
 from .seg_net import SegNet
+from .seg_polarnet import SegPolarNet
 
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     "PointPillars",
 
     "SegNet",
+    "SegPolarNet",
 ]
