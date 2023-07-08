@@ -16,9 +16,6 @@ from .context_module import LiDARSemanticFeatureAggregationModule, SemanticFeatu
 
 @POINT_HEADS.register_module
 class PointSegMSeg3DHead(nn.Module):
-    """
-    # PointFusionMimicCrossOCR1TransformerSegDropPerHead
-    """
     def __init__(self, class_agnostic, num_class, model_cfg, **kwargs):
         super().__init__()
         
