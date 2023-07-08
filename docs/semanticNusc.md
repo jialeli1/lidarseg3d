@@ -75,8 +75,9 @@ python -m torch.distributed.launch --nproc_per_node=4 ./tools/train.py CONFIG_PA
 python -m torch.distributed.launch --nproc_per_node=4 ./tools/train.py configs/semanticnusc/SDSeg3D/semnusc_transvfe_unetscn3d_batchloss_e48.py
 
 # example for MSeg3D
-# after code cleanup and optimization, this sample cfg using HRNet-w18 as the image backbone network ground has achieved 80.12mIoU, trained on 4 GeForce RTX 3090 GPUs.
-# you can modify the cfg with larger image backbone HRNet-w48 and 24 epochs for more training time and segmentation performance
+# after code cleanup and optimization, this sample cfg using HRNet-w18 as the image backbone network has achieved 80.12mIoU, trained on 4 GeForce RTX 3090 GPUs.
+# you can modify the cfg with larger image backbone HRNet-w48 and 24 epochs 
+# for more training time and segmentation performance.
 CUDA_VISIBLE_DEVICES=4,5,6,7 python -m torch.distributed.launch --nproc_per_node=4 ./tools/train.py configs/semanticnusc/MSeg3D/semnusc_avgvfe_unetscn3d_hrnetw18_lr1en2_e12.py --tcp_port 17045 
 ```
 
