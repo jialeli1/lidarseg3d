@@ -11,6 +11,9 @@ from .two_stage import TwoStageDetector
 from .seg_net import SegNet
 from .seg_polarnet import SegPolarNet
 
+# MSeg3D
+from .seg_mseg3d_net import SegMSeg3DNet
+
 
 __all__ = [
     "BaseDetector",
@@ -21,4 +24,5 @@ __all__ = [
 
     "SegNet",
     "SegPolarNet",
+    "SegMSeg3DNet",
 ]

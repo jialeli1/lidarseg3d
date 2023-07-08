@@ -50,6 +50,9 @@ class SemanticKITTIDataset(Dataset):
         cfg=None,
         pipeline=None,
         class_names=None,
+        cam_names=None,
+        cam_attributes=None,
+        img_resized_shape=None,
         test_mode=False,
         version="v0.0",
         **kwargs,
@@ -59,6 +62,21 @@ class SemanticKITTIDataset(Dataset):
         self.test_mode = test_mode
         self._root_path = root_path
         self._class_names = class_names
+
+
+        self._use_img = cam_names is not None
+        if self._use_img: 
+            self._cam_names = cam_names
+            self.img_resized_shape = img_resized_shape
+            
+            _cam_attributes = {}
+            for cam_id, cam_attribute in cam_attributes.items():
+                mean_np = np.array(cam_attribute["mean"], dtype=np.float32).reshape(1,1,3)
+                std_np = np.array(cam_attribute["std"], dtype=np.float32).reshape(1,1,3)
+                _cam_attributes[cam_id] = {"mean": mean_np, "std": std_np}
+            self._cam_attributes = _cam_attributes
+
+
 
         self._num_point_features = SemanticKITTIDataset.NumPointFeatures
 
@@ -158,6 +176,17 @@ class SemanticKITTIDataset(Dataset):
 
         info = self.load_infos(idx)
 
+        if self._use_img:
+            res_cam = {
+                "names": self._cam_names, 
+                "attributes": self._cam_attributes,
+                "resized_shape": self.img_resized_shape,
+                "annotations": None
+            }
+        else:
+            res_cam = {}
+
+
         res = {
             "lidar": {
                 "type": "lidar",
@@ -172,7 +201,7 @@ class SemanticKITTIDataset(Dataset):
                 "token": info["token"],
             },
             "calib": None,
-            "cam": {},
+            "cam": res_cam,
             "mode": "val" if self.test_mode else "train",
             "painted": False, 
         }

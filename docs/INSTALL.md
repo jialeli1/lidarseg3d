@@ -14,6 +14,8 @@ Modified from [CenterPoint](https://github.com/tianweiy/CenterPoint)'s original 
 #### Notes
 - A rule of thumb is that your pytorch cuda version must match the cuda version of your systsem for other cuda extensions to work properly. 
 - We don't have enough resources to test different environments, please consider using our code in a similar environment.
+- More packages should be installed for MSeg3D according to the updated "requirements.txt". We specified the version we used for stability, other versions can be tried if your environment has difficulties with the installation.
+
 ### Basic Installation 
 
 ```bash

@@ -12,9 +12,55 @@ from det3d import torchie
 from det3d.core import box_np_ops
 import pickle 
 import os
+import cv2
 
-from det3d.core.sampler import segpreprocess 
 from ..registry import PIPELINES
+
+
+
+def select_points_in_frustum(points_2d, x1, y1, x2, y2):
+    """
+    for SemanticKITTI
+    Select points in a 2D frustum parametrized by x1, y1, x2, y2 in image coordinates
+    :param points_2d: point cloud projected into 2D
+    :param points_3d: point cloud
+    :param x1: left bound
+    :param y1: upper bound
+    :param x2: right bound
+    :param y2: lower bound
+    :return: points (2D and 3D) that are in the frustum
+    """
+    keep_ind = (points_2d[:, 0] > x1) * \
+                (points_2d[:, 1] > y1) * \
+                (points_2d[:, 0] < x2) * \
+                (points_2d[:, 1] < y2)
+
+    return keep_ind
+
+
+
+
+def read_calib_semanticKITTI(calib_path):
+    """
+    for SemanticKITTI
+    :param calib_path: Path to a calibration text file.
+    :return: dict with calibration matrices.
+    """
+    calib_all = {}
+    with open(calib_path, 'r') as f:
+        for line in f.readlines():
+            if line == '\n':
+                break
+            key, value = line.split(':', 1)
+            calib_all[key] = np.array([float(x) for x in value.split()])
+
+    # reshape matrices
+    calib_out = {}
+    calib_out['P2'] = calib_all['P2'].reshape(3, 4)  # 3x4 projection matrix for left camera
+    calib_out['Tr'] = np.identity(4)  # 4x4 matrix
+    calib_out['Tr'][:3, :4] = calib_all['Tr'].reshape(3, 4)
+
+    return calib_out
 
 
 
@@ -253,10 +299,63 @@ class LoadPointCloudFromFile(object):
             res["lidar"]["combined"] = None
             # info["dim"]["points"] = points.shape[-1]
 
+            if self.use_img:
+                # ..../sequences/00/velodyne/004540.bin
+                # the calib.txt is shared by a sequence
+                calib_path = path[:-11].replace("velodyne", "calib.txt")
+                # print("==> path: {}, calib_path: {}".format(path, calib_path))
+                # ==> path: data/SemanticKITTI/dataset/sequences/01/velodyne/000746.bin, calib_path: data/SemanticKITTI/dataset/sequences/01/calib.txt
+
+                calib = read_calib_semanticKITTI(calib_path)
+                proj_matrix = np.matmul(calib["P2"], calib["Tr"]) # shape: (3, 4)
+
+                # keep only points in front of the vehicle
+                pts_uv_all = np.ones([points.shape[0], 3]).astype(np.float32) * -100
+
+
+
+                points_hcoords = np.concatenate([points[:, :3], np.ones([points.shape[0], 1], dtype=np.float32)], axis=1)
+                img_points = (proj_matrix @ points_hcoords.T).T
+                img_points = img_points[:, :2] / np.expand_dims(img_points[:, 2], axis=1)  # scale 2D points
+
+                # fix the image size
+                im_width, im_height = 1224, 370
+                # frustum_mask & front_mask
+                frustum_mask = select_points_in_frustum(img_points, 0, 0, im_width, im_height)
+                mask = frustum_mask & (points[:, 0] > 0)
+
+                # pts_uv_all: shape [npoints, 3], 3 for [cam_id, idx_of_width, idx_of_height]
+                # cam_id starts from 1, following the waymo style
+                pts_uv_all[mask, 0] = 1
+                pts_uv_all[mask, 1:3] = img_points[mask, 0:2]
+
+                
+                # (npoints, 3), [cam_id, idx_of_width, idx_of_height]
+                res["lidar"]["points_cp"] = pts_uv_all
+
+
         # waymo seg3d
         elif self.type in ["SemanticWaymoDataset"]:
-            # TODO: Support SemanticWaymoDataset
-            pass
+            path = info['path']
+            nsweeps = res["lidar"]["nsweeps"]
+
+            # obj = get_obj(path)
+            # points = read_single_waymo(obj)
+
+            example_obj = get_obj(path)
+            points = read_single_waymo(example_obj)
+
+            res["lidar"]["points"] = points
+            # save num_points_of_top_lidar for selecting ri_return1/ri_return2
+            res["metadata"]["num_points_of_top_lidar"] = example_obj["lidars"]["num_points_of_top_lidar"]
+
+
+            if self.use_img:
+                # waymo dataset provides points_cp (pointwise camera projection)
+                points_cp = example_obj["lidars"]["points_cp"] # (npoints, 3), [cam_id, idx_of_width, idx_of_height]
+                res["lidar"]["points_cp"] = points_cp
+
+
 
         # nusc seg3d
         elif self.type == "SemanticNuscDataset":
@@ -270,6 +369,52 @@ class LoadPointCloudFromFile(object):
             points = np.fromfile(lidar_path, dtype=np.float32).reshape(-1, 5)
             res["lidar"]["points"] = points
  
+            # get points_cp (pointwise camera projection) before augmentation
+            if self.use_img:
+                # cam_name = res['cam']['names']
+                cam_chan = res["cam"]["chan"]
+
+                im_shape = (900, 1600, 3)
+
+                # final shape: (npoints, 3)
+                # [cam_id, idx_of_width, idx_of_height]
+                # without normalization here
+                pts_uv_all = np.ones([points.shape[0], 3]).astype(np.float32) * -100
+
+                for cam_id, cam_sensor in enumerate(cam_chan):
+                    cam_from_global = info["cams_from_global"][cam_sensor]
+                    cam_intrinsic = info["cam_intrinsics"][cam_sensor]
+
+                    # lidar to global
+                    ref_to_global = info["ref_to_global"]
+                    pts_hom = np.concatenate([points[:, :3], np.ones([points.shape[0], 1])], axis=1)
+                    pts_global = ref_to_global.dot(pts_hom.T)  # 4 * N
+
+                    # global to cam
+                    pts_cam = cam_from_global.dot(pts_global)[:3, :]  # 3 * N
+
+                    # cam to uv
+                    pts_uv = view_points(pts_cam, np.array(cam_intrinsic), normalize=True).T  # N * 3
+
+                    # Remove points that are either outside or behind the camera. Leave a margin of 1 pixel for aesthetic reasons.
+                    mask = (pts_cam[2, :] > 0) & (pts_uv[:, 0] > 1) & (pts_uv[:, 0] < im_shape[1] - 1) & (
+                            pts_uv[:, 1] > 1) & (pts_uv[:, 1] < im_shape[0] - 1)
+
+                    # mask = (pts_cam[2, :] > 0) \
+                    #     & (pts_uv[:, 0] > 0) & (pts_uv[:, 0] < im_shape[1] - 1) \
+                    #     & (pts_uv[:, 1] > 0) & (pts_uv[:, 1] < im_shape[0] - 1)
+
+                    pts_uv_all[mask, :2] = pts_uv[mask, :2]
+                    # NOTE: cam_id starts from 1, following the waymo style
+                    pts_uv_all[mask, 2] = float(cam_id) + 1
+
+                # reformat as semantciwaymo: [cam_id, idx_of_width, idx_of_height]
+                # NOTE: BE CAREFUL
+                points_cp = pts_uv_all[:, [2, 0, 1]]
+
+                # (npoints, 3), [cam_id, idx_of_width, idx_of_height]
+                res["lidar"]["points_cp"] = points_cp
+
 
         else:
             raise NotImplementedError
@@ -331,16 +476,31 @@ class LoadPointCloudAnnotations(object):
         
         # waymo seg3d
         elif res["type"] == 'SemanticWaymoDataset':
-            # TODO: Support SemanticWaymoDataset
-            pass
+            # TYPE_UNDEFINED: 0
+            assert info["seg_annotated"], "==> Seg annotated frames only!"
+            anno_path = info['anno_path']
+            obj = get_obj(anno_path)
+            semantic_anno = obj["seg_labels"]["points_seglabel"] # (numpoints_toplidar, 2), [ins, sem]
+
+            num_points_top_lidar = semantic_anno.shape[0]
+            num_points_all_lidars = res["lidar"]["points"].shape[0]
+
+            assert num_points_top_lidar == res["metadata"]["num_points_of_top_lidar"]["ri_return1"] + res["metadata"]["num_points_of_top_lidar"]["ri_return2"]
+            semantic_anno_padded = np.zeros(shape=(num_points_all_lidars, semantic_anno.shape[-1]), dtype=semantic_anno.dtype)
+            semantic_anno_padded[:num_points_top_lidar, :] = semantic_anno
+
+            res["lidar"]["annotations"] = {
+                "point_sem_labels": semantic_anno_padded[:, 1],
+                "point_inst_labels": semantic_anno_padded[:, 0],
+            }
+
 
         # nusc seg3d
         elif res["type"] == 'SemanticNuscDataset':
             learning_map = res['learning_map']
             data_root = 'data/SemanticNusc'
+            # lidarseg_labels_filename: data/SemanticNusc/lidarseg/v1.0-trainval/e6ca15bc5803457cba8d05f5e78f4e40_lidarseg.bin
             lidarseg_labels_filename = os.path.join(data_root, info['seganno_path'])
-            # print("==> lidarseg_labels_filename: ", lidarseg_labels_filename)
-            # data/SemanticNusc/lidarseg/v1.0-trainval/e6ca15bc5803457cba8d05f5e78f4e40_lidarseg.bin
 
             point_sem_labels = np.fromfile(lidarseg_labels_filename, dtype=np.uint8).reshape(-1)
             point_sem_labels = np.vectorize(learning_map.__getitem__)(point_sem_labels).astype(np.float32)
@@ -357,5 +517,132 @@ class LoadPointCloudAnnotations(object):
             pass 
 
         return res, info
+
+
+
+
+@PIPELINES.register_module
+class LoadImageFromFile(object):
+    def __init__(self, **kwargs):
+        pass
+
+    def __call__(self, res, info):
+
+        dataset_type = res["type"]
+
+        if dataset_type == "NuScenesDataset":
+            raise NotImplementedError
+        
+        elif dataset_type in ["WaymoDataset"]:
+            raise NotImplementedError
+        
+        elif dataset_type in ["SemanticKITTIDataset"]:
+            path = info["path"]
+            # image_2_path:  data/SemanticKITTI/dataset/sequences/01/image_2/000732.png
+            image_2_path = path.replace('velodyne', 'image_2').replace('.bin', '.png')
+
+            # reformat as waymo and nusc 
+            cam_paths = {'1': image_2_path}
+            cam_names = res["cam"]["names"]
+            ori_images = [cv2.imread(cam_paths[cam_id]) for cam_id in cam_names]
+
+            res["images"] = ori_images
+            
+
+        elif dataset_type in ["SemanticWaymoDataset"]:
+            cam_names = res["cam"]["names"] # a list of ['1', '2', '3', '4', '5']
+            cam_paths = info["cam_paths"]   # a dict. The key is set as the cam_id   
+            ori_images = [cv2.imread(cam_paths[cam_id]) for cam_id in cam_names]
+
+            res["images"] = ori_images
+
+        elif dataset_type in ["SemanticNuscDataset"]:
+            # cam_chan: a list of ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
+            # cam_names: a list of ['1', '2', '3', '4', '5', '6']
+            cam_chan = res["cam"]["chan"]
+            cam_names = res["cam"]["names"] 
+            
+
+            cam_paths = info["cam_paths"] 
+            # img shape for all cameras: (900, 1600, 3)
+            ori_images = [cv2.imread(cam_paths[cam_sensor]) for cam_sensor in cam_chan]
+
+            res["images"] = ori_images
+
+
+        else:
+            raise NotImplementedError
+
+        return res, info
+
+
+@PIPELINES.register_module
+class LoadImageAnnotations(object):
+    def __init__(self, **kwargs):
+        self.points_cp_radius = kwargs.get("points_cp_radius", 1)
+
+
+    def __call__(self, res, info):
+
+        dataset_type = res["type"]
+
+        if dataset_type == "NuScenesDataset":
+            raise NotImplementedError
+        
+        elif dataset_type in ["WaymoDataset"]:
+            raise NotImplementedError
+            
+
+        elif dataset_type in ["SemanticWaymoDataset", "SemanticNuscDataset", "SemanticKITTIDataset"]:
+            # project the pointwise label as the sparse pixelwise label for image branch
+            # set this pipline after LoadPointCloudFromFile/LoadImageFromFile/LoadPointCloudAnnotations
+            
+            cam_names = res["cam"]["names"] # a list of ['1', '2', '3', '4', '5']
+
+            ori_images = res["images"]
+            ori_points_cp = res["lidar"]["points_cp"]
+            ori_point_sem_labels = res["lidar"]["annotations"]["point_sem_labels"]
+            ori_image_sem_maps = []
+            for cam_id, ori_image in zip(cam_names, ori_images):
+                H, W = ori_image.shape[0], ori_image.shape[1] 
+                cur_ori_sem_map = np.zeros((H, W), dtype=ori_image.dtype) # uint8
+                
+                # [npoints, 3] -> [cur_npoints, 3] 
+                point_cam_id_mask = ori_points_cp[:, 0] == int(cam_id)
+                cur_ori_points_cp = ori_points_cp[point_cam_id_mask]
+                # [cur_npoints,] 
+                cur_wid_coords = list(cur_ori_points_cp[:, 1]) # for calling the cv2.circle
+                cur_hei_coords = list(cur_ori_points_cp[:, 2])
+                cur_sem_labels = list(ori_point_sem_labels[point_cam_id_mask])
+                for i in range(len(cur_wid_coords)):
+                    if cur_sem_labels[i] > 0:
+                        cv2.circle(
+                            cur_ori_sem_map, 
+                            center=(int(cur_wid_coords[i]), int(cur_hei_coords[i])),
+                            radius=self.points_cp_radius,
+                            color=int(cur_sem_labels[i]),
+                            thickness=-1, 
+                            # lineType=cv2.LINE_AA, 
+                        )
+
+                ori_image_sem_maps.append(cur_ori_sem_map)
+
+
+            # add to res
+            img_gt_dict = {
+                "image_sem_labels": ori_image_sem_maps,
+            } 
+
+        else:
+            raise NotImplementedError
+
+        res["cam"]["annotations"] = img_gt_dict
+
+        return res, info
+
+
+
+
+
 
 

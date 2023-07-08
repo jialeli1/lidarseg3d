@@ -3,8 +3,10 @@ from torch import nn
 
 from .registry import (
     BACKBONES,
+    IMG_BACKBONES,
     DETECTORS,
     HEADS,
+    IMG_HEADS,
     LOSSES,
     NECKS,
     READERS,
@@ -34,6 +36,13 @@ def build_reader(cfg):
 
 def build_backbone(cfg):
     return build(cfg, BACKBONES)
+
+
+def build_img_backbone(cfg):
+    return build(cfg, IMG_BACKBONES)
+
+def build_img_head(cfg):
+    return build(cfg, IMG_HEADS)
 
 
 def build_neck(cfg):

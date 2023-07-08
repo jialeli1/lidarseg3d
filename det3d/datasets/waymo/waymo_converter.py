@@ -62,9 +62,8 @@ def convert(idx):
             pickle.dump(decoded_annos, f)
 
         # add: dump the cam images
-        # 制作img file names
         for image, camera_id in zip(decoded_images, decoded_cameras):
-            # 直接解析出来的应该是rgb模式, 使用cv2.imwrite的话先转成bgr模式
+            # rgb mode to bgr mode for cv2.imwrite
             # print("==> camera_id: {}, image.shape: {}".format(camera_id, image.shape))
             image_file = os.path.join(CAM_PATH, 'seq_{}_frame_{}_cam_{}.png'.format(idx, frame_id, camera_id))
             cv2.imwrite(image_file, image[:, :, [2,1,0]])
@@ -73,8 +72,6 @@ def convert(idx):
 def main(args):
     global fnames 
     fnames = list(glob.glob(args.record_path))
-    # 暂时只取第一个tfrecord看看呢
-    # fnames = list(glob.glob(args.record_path))[:1]
 
     print("Number of files {}".format(len(fnames)))
 

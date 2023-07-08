@@ -47,9 +47,22 @@ In the end, the data and info files should be organized as follows
             |── infos_test_10sweeps_segdet_withvelo_filter_True.pkl     <-- test annotations
 ```
 
+### Prepare the pretrained image backbones (Optional for Multimodal 3D Semantic Segmentation)
+The publicly available pth files are downloaded directly from mmsegmentation. Two downloaded pth files are also provided [here](https://drive.google.com/drive/folders/1x1oZZMstVdQyV3aPR_pe-qU4aAISHxdm?usp=sharing) for quick experiments with HRNet-w18 and HRNet-w48. Please organise your downloaded pth files as follows.
+``` 
+└── lidarseg3d
+    └── data  
+    ├── ...  
+    └── work_dirs
+        └── pretrained_models              <--- shared for different datasets
+            |── hrnetv2_w18-00eb2006.pth   <--- HRNet-w18
+            └── hrnetv2_w48-d2186c55.pth   <--- HRNet-w48
+```
 
 
-### Train & Evaluate in Command Line
+
+
+### Train & Evaluation in Command Line
 Now we only support training and evaluation with gpu. Cpu only mode is not supported. The following template commands are available for all datasets via the specific config.
 
 Use the following command to start a distributed training using 4 GPUs. You can decide how many GPUs to use to train by --nproc_per_node=X. The models and logs will be saved to ```work_dirs/CONFIG_NAME``` 
@@ -60,6 +73,11 @@ python -m torch.distributed.launch --nproc_per_node=4 ./tools/train.py CONFIG_PA
 
 # example1: 
 python -m torch.distributed.launch --nproc_per_node=4 ./tools/train.py configs/semanticnusc/SDSeg3D/semnusc_transvfe_unetscn3d_batchloss_e48.py
+
+# example for MSeg3D
+# after code cleanup and optimization, this sample cfg using HRNet-w18 as the image backbone network ground has achieved 80.12mIoU, trained on 4 GeForce RTX 3090 GPUs.
+# you can modify the cfg with larger image backbone HRNet-w48 and 24 epochs for more training time and segmentation performance
+CUDA_VISIBLE_DEVICES=4,5,6,7 python -m torch.distributed.launch --nproc_per_node=4 ./tools/train.py configs/semanticnusc/MSeg3D/semnusc_avgvfe_unetscn3d_hrnetw18_lr1en2_e12.py --tcp_port 17045 
 ```
 
 For distributed testing with 4 gpus

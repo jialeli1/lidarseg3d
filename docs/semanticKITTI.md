@@ -14,6 +14,7 @@
                             ├── calib.txt 
                             ├── poses.txt
                             ├── times.txt
+                            ├── image_2   <-- front camera image files
                             ├── velodyne  <-- point cloud files
                             └── labels    <-- annotations for train set
                         ├── 01   
@@ -24,6 +25,21 @@
 ```
 
 The semanticKITTI is relatively simple, and we did not do additional conversions.
+
+
+
+### Prepare the pretrained image backbones (Optional for Multimodal 3D Semantic Segmentation)
+The publicly available pth files are downloaded directly from mmsegmentation. Two downloaded pth files are also provided [here](https://drive.google.com/drive/folders/1x1oZZMstVdQyV3aPR_pe-qU4aAISHxdm?usp=sharing) for quick experiments with HRNet-w18 and HRNet-w48. Please organise your downloaded pth files as follows.
+``` 
+└── lidarseg3d
+    └── data  
+    ├── ...  
+    └── work_dirs
+        └── pretrained_models              <--- shared for different datasets
+            |── hrnetv2_w18-00eb2006.pth   <--- HRNet-w18
+            └── hrnetv2_w48-d2186c55.pth   <--- HRNet-w48
+```
+
 
 
 ### Train & Evaluate in Command Line
@@ -38,6 +54,11 @@ python -m torch.distributed.launch --nproc_per_node=4 ./tools/train.py CONFIG_PA
 
 # example1: 
 python -m torch.distributed.launch --nproc_per_node=4 ./tools/train.py configs/semantickitti/SDSeg3D/semkitti_transVFE_unetscn3d_batchloss_e10.py
+
+
+# example for mseg3d:
+# you can modify the cfg with larger image backbone HRNet-w48 and 24 epochs for more training time and segmentation performance
+python -m torch.distributed.launch --nproc_per_node=4 ./tools/train.py configs/semantickitti/MSeg3D/semkitti_avgvfe_unetscn3d_hrnetw18_lr1en2_e12.py
 ```
 
 For distributed testing with 4 gpus

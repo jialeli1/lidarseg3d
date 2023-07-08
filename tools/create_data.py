@@ -12,6 +12,7 @@ from det3d.datasets.utils.create_gt_database import create_groundtruth_database
 
 # for seg3d
 from det3d.datasets.nuscenes import semanticnusc_common as semanticnusc_ds
+from det3d.datasets.waymo import semanticwaymo_common as semanticwaymo_ds
 
 
 def nuscenes_data_prep(root_path, version, nsweeps=10, filter_zero=True):
@@ -39,6 +40,11 @@ def waymo_data_prep(root_path, split, nsweeps=1):
 
 def semanticnuscenes_data_prep(root_path, version, nsweeps=10, filter_zero=True):
     semanticnusc_ds.create_nuscenes_infos(root_path, version=version, nsweeps=nsweeps, filter_zero=filter_zero)
+
+
+def semanticwaymo_data_prep(root_path, split, nsweeps=1):
+    # for segmentation on waymo v1.3 
+    semanticwaymo_ds.create_waymo_infos(root_path, split=split, nsweeps=nsweeps)
 
 
 

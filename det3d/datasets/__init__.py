@@ -3,6 +3,7 @@ from .builder import build_dataset
 # from .cityscapes import CityscapesDataset
 from .nuscenes import NuScenesDataset
 from .waymo import WaymoDataset
+from .waymo import SemanticWaymoDataset
 
 from .semantickitti import SemanticKITTIDataset
 from .nuscenes import SemanticNuscDataset

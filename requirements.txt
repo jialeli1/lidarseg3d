@@ -34,5 +34,11 @@ requests
 cmake==3.18.4.post1
 Cython
 
+
+# new packages to be installed for polarnet and cylinder3d
 torch_scatter==2.0.7    # for dynamic voxelization 
 dropblock               # used in polarnet
+timm
+
+# new packages to be installed for lidar segmentation on waymo dataset
+waymo-open-dataset-tf-2-6-0==1.4.3

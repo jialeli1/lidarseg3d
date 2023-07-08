@@ -10,6 +10,13 @@ from det3d.core.input.voxel_generator import VoxelGenerator
 from ..registry import PIPELINES
 
 
+import cv2
+from torchvision.transforms import ColorJitter
+from .img_transforms import RandomCrop, RandomRescale, image_and_points_cp_and_label_resize, image_and_points_cp_and_label_random_horizon_flip, image_input_transform, jpeg_compression
+
+
+
+
 @PIPELINES.register_module
 class SegPreprocess(object):
     def __init__(self, cfg=None, **kwargs):
@@ -389,4 +396,282 @@ class SegAssignLabel(object):
 
         return res, info
 
+
+
+@PIPELINES.register_module
+class SegImagePreprocess(object):
+    def __init__(self, cfg=None, **kwargs):
+        # set img aug parameters
+        self.shuffle_points = cfg.get('shuffle_points', False)
+        self.random_horizon_flip = cfg.get('random_horizon_flip', False)
+        random_color_jitter_cfg = cfg.get('random_color_jitter_cfg', None)
+        if random_color_jitter_cfg is not None:
+            self.random_color_jitter = True
+            self.random_color_jitter_transform = ColorJitter(**random_color_jitter_cfg)
+        else: 
+            self.random_color_jitter = False
+            self.random_color_jitter_transform = None
+
+
+        random_jpeg_compression_cfg = cfg.get('random_jpeg_compression_cfg', None)
+        if random_jpeg_compression_cfg is not None:
+            self.random_jpeg_compression = True
+            self.random_jpeg_compression_cfg = random_jpeg_compression_cfg
+        else:
+            self.random_jpeg_compression = False
+
+        random_rescale_cfg = cfg.get('random_rescale_cfg', None)
+        if random_rescale_cfg is not None:
+            self.random_rescale = True
+            self.random_rescale_transform = RandomRescale(**random_rescale_cfg)
+        else:
+            self.random_rescale = False
+            self.random_rescale_transform = None
+
+
+        random_crop_cfg = cfg.get('random_crop_cfg', None)
+        if random_crop_cfg is not None:
+            self.random_crop = True
+            self.random_crop_transform = RandomCrop(**random_crop_cfg)
+        else:
+            self.random_crop = False  
+            self.random_crop_transform = None 
+
+        self.save_img_for_tta = kwargs.get("save_img_for_tta", False)
+        self.no_augmentation = cfg.get('no_augmentation', False)
+
+    def random_color_jitter_wrap(self, img):
+        """
+        img: [H, W, 3] np.array in BGR mode
+        img.dtype should be float for image with pixel value in 0~1
+        img.dtype should be uint8 for image with pixel value in 0~255
+        """
+
+        # BGR-> RGB, np.array -> a cpu tensor
+        img_tensor = torch.Tensor(img[:, :, (2,1,0)]).type(torch.uint8)
+        # [H, W, 3] -> [3, H, W]
+        img_tensor = img_tensor.permute(2,0,1)
+
+        # jittering
+        jittered_img_tensor = self.random_color_jitter_transform(img_tensor)
+        # [3, H, W] -> [H, W, 3]
+        jittered_img = jittered_img_tensor.permute(1,2,0).numpy()
+        
+        # RGB -> BGR
+        img = jittered_img[:, :, (2,1,0)]
+
+        return img
+
+
+    def random_rescale_wrap(self, image, points_cp, image_label=None):
+
+        rescale_in_dict = dict(
+            image=image,
+            points_cp=points_cp,
+        )
+        if image_label is not None:
+            rescale_in_dict["image_label"] = image_label
+
+        rescale_in_dict = self.random_rescale_transform(rescale_in_dict)
+        
+        image = rescale_in_dict["image"] 
+        points_cp = rescale_in_dict["points_cp"]
+
+        rescaled_shape = rescale_in_dict["rescaled_shape"]
+
+        if image_label is not None:
+            image_label = rescale_in_dict["image_label"]
+
+        return image, points_cp, image_label
+
+
+    def random_crop_wrap(self, image, points_cp, image_label=None):
+
+        crop_in_dict = dict(
+            image=image,
+            points_cp=points_cp,
+        )
+        if image_label is not None:
+            crop_in_dict["image_label"] = image_label
+
+        crop_in_dict = self.random_crop_transform(crop_in_dict)
+        
+        image = crop_in_dict["image"] 
+        points_cp = crop_in_dict["points_cp"]
+
+        cropped_shape = crop_in_dict["cropped_shape"]
+        crop_valid = crop_in_dict["crop_valid"]
+
+        if image_label is not None:
+            image_label = crop_in_dict["image_label"]
+
+        return image, points_cp, image_label
+
+
+    def __call__(self, res, info):
+        # res["mode"] = self.mode
+        mode = res["mode"]
+        dataset_type = res["type"]
+        if dataset_type == "NuScenesDataset":
+            raise NotImplementedError
+        
+        elif dataset_type in ["WaymoDataset"]:
+            raise NotImplementedError
+            
+        elif dataset_type == "SemanticNuScenesDataset":
+            raise NotImplementedError
+
+        elif dataset_type in ["SemanticWaymoDataset", "SemanticNuscDataset", "SemanticKITTIDataset"]:
+
+            points_cp = res["lidar"]["points_cp"] # (npoints, 3), [cam_id, idx_of_width, idx_of_height]
+            points = res["lidar"]["points"]
+            ori_images = res["images"] 
+            assert points_cp.shape[0] == points.shape[0]
+            cam_names = res["cam"]["names"] 
+            cam_attributes = res["cam"]["attributes"]  
+            resized_shape_cv = res["cam"]["resized_shape"]
+
+
+            # 3: [camid, u, v]
+            points_cuv_all = np.ones([points.shape[0], 3]).astype(np.float32) * -100
+                
+            img_has_annotations = res["cam"]["annotations"] is not None
+
+            # training: resize the multicamera images as the same shape, then do augmentations
+            # inference: resize the multicamera images as the same shape
+            resized_images = []
+            resized_image_sem_labels = []
+            for cam_id, ori_image in zip(cam_names, ori_images):
+                point_cam_id_mask = points_cp[:, 0] == int(cam_id)
+                idx = int(cam_id)-1 
+                
+                if img_has_annotations:
+                    ori_image_sem_label = res["cam"]["annotations"]["image_sem_labels"][idx]
+                    resized_image, points_cp[point_cam_id_mask], image_label = image_and_points_cp_and_label_resize(
+                        image=ori_image, # (1280, 1920, 3) or (886, 1920, 3)
+                        points_cp=points_cp[point_cam_id_mask], 
+                        image_label=ori_image_sem_label, 
+                        resized_shape=resized_shape_cv,
+                    )
+                    resized_images.append(resized_image)
+                    resized_image_sem_labels.append(image_label)
+                else:
+                    resized_image, points_cp[point_cam_id_mask], _ = image_and_points_cp_and_label_resize(
+                        image=ori_image, 
+                        points_cp=points_cp[point_cam_id_mask], 
+                        image_label=None, 
+                        resized_shape=resized_shape_cv,
+                    )
+                    resized_images.append(resized_image)
+
+
+            if mode == "train" and not self.no_augmentation:
+                for cam_id, img in zip(cam_names, resized_images):
+                    point_cam_id_mask = points_cp[:, 0] == int(cam_id)
+                    idx = int(cam_id)-1 
+                    
+                    if img_has_annotations:
+                        img_sem_label = resized_image_sem_labels[idx]
+            
+                        if self.random_horizon_flip:
+                            img, points_cp[point_cam_id_mask, 1], img_sem_label = image_and_points_cp_and_label_random_horizon_flip(
+                                image=img, 
+                                points_cp=points_cp[point_cam_id_mask, 1],
+                                image_label=img_sem_label
+                            )
+
+                        if self.random_color_jitter:
+                            img = self.random_color_jitter_wrap(img)
+
+
+                        if self.random_jpeg_compression:
+                            img = jpeg_compression(
+                                image=img, 
+                                quality_noise=self.random_jpeg_compression_cfg["quality_noise"], 
+                                probability=self.random_jpeg_compression_cfg["probability"],
+                            )
+
+                        if self.random_rescale:
+                            img, points_cp[point_cam_id_mask], img_sem_label = self.random_rescale_wrap(
+                                image=img, 
+                                points_cp=points_cp[point_cam_id_mask], 
+                                image_label=img_sem_label
+                            )
+
+                        if self.random_crop:
+                            img, points_cp[point_cam_id_mask], img_sem_label = self.random_crop_wrap(
+                                image=img, 
+                                points_cp=points_cp[point_cam_id_mask], 
+                                image_label=img_sem_label
+                            )
+
+
+                        resized_images[idx] = img
+                        resized_image_sem_labels[idx] = img_sem_label
+                    else:
+                        assert False
+
+                    
+
+            if self.save_img_for_tta:
+                res["images_for_tta"] = deepcopy(resized_images)
+
+
+
+            for cam_id, img in zip(cam_names, resized_images):
+                idx = int(cam_id)-1 
+                img = image_input_transform(
+                    img, 
+                    mean=cam_attributes[cam_id]["mean"], 
+                    std=cam_attributes[cam_id]["std"],
+                ).astype(np.float32)
+                resized_images[idx] = img
+
+
+            # NOTE: synchronous shuffle_points
+            if self.shuffle_points:
+                points_shuffle_idx = res["lidar"]["points_shuffle_idx"]
+                assert points_shuffle_idx.shape[0] <= points_cp.shape[0]
+                points_cp = points_cp[points_shuffle_idx]
+
+
+
+            # num_cam [H, W, 3] -> [num_cam, H, W, 3] -> [num_cam, 3, H, W]
+            images = np.stack(resized_images, axis=0).transpose((0,3,1,2))
+            res_shape = images.shape[-2:] # [H, W]
+
+            if img_has_annotations:
+                # num_cam [H, W] -> [num_cam, H, W]
+                images_sem_labels = np.stack(resized_image_sem_labels, axis=0)
+                res["images_sem_labels"] = images_sem_labels.astype(np.float32)
+
+
+            # normalize the camera projection coordinates to [-1, 1], in order to use F.grid_sample later
+            # F.grid_sample supports 3D tensor interpolation, so the cam_id can also be normalized to [-1, 1]
+            # input: (N, C, D_\text{in}, H_\text{in}, W_\text{in})
+            # output: (N, C, D_\text{out}, H_\text{out}, W_\text{out})
+            # input: grid (N, D_out, H_out​, W_out​, 3) 3: [d, h, w]
+            if len(cam_names) > 1:
+                points_cuv_all[:, 0] = (points_cp[:, 0] - 1) / (len(cam_names) - 1) * 2 - 1
+            else:
+                # 0 is fine for nusc
+                points_cuv_all[:, 0] = 0
+                # points_cuv_all[:, 0] = -1
+
+
+            points_cuv_all[:, 1] = points_cp[:, 2] / (res_shape[0] - 1) * 2 -1
+            points_cuv_all[:, 2] = points_cp[:, 1] / (res_shape[1] - 1) * 2 -1
+
+
+            # points_cp_valid: (points.shape[0], 1)
+            points_cp_valid = (points_cp[:, 0:1] > 0).astype(points_cuv_all.dtype)  
+            # points_cuv_all: (points.shape[0], 4), the inner 4 dims: [valid, normed_camid, normed_h_coord, normed_w_coord] 
+            
+            res["lidar"]["points_cp"] = points_cp
+            res["lidar"]["points_cuv"] = np.concatenate([points_cp_valid, points_cuv_all], axis=1) # normalized camera projection coordinates
+
+
+            res["images"] = images
+
+        return res, info
 
